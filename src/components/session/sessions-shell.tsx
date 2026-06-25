@@ -244,6 +244,20 @@ export function SessionsShell({ children }: PropsWithChildren) {
         <div className="flex h-14 items-center gap-2 border-b px-4">
           <SidebarTrigger />
           <p className="text-sm text-muted-foreground">Monitor and compare sessions</p>
+          <div className="ml-auto">
+            <a
+              href="https://github.com/muhsalaa/data-compare"
+              target="_blank"
+              rel="noreferrer"
+              aria-label="GitHub repository"
+              title="GitHub repository"
+              className={cn(buttonVariants({ size: 'icon-sm', variant: 'outline' }))}
+            >
+              <svg viewBox="0 0 19 19" className="size-4" fill="currentColor" aria-hidden="true">
+                <use href="/icons.svg#github-icon" />
+              </svg>
+            </a>
+          </div>
         </div>
         <div className="flex-1 p-4 md:p-6">{children}</div>
       </SidebarInset>
