@@ -5,6 +5,7 @@ import { createSession } from '@/db'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { DEFAULT_POLL_INTERVAL_MS, DEFAULT_TIMEOUT_MS, MIN_POLL_INTERVAL_MS, MIN_TIMEOUT_MS, formatMsAsSeconds, maxTimeoutMsForInterval, secondsToMs, validateSessionTiming } from '@/lib/session-timing'
 import { SessionsShell } from '@/components/session/sessions-shell'
@@ -16,6 +17,7 @@ export const Route = createFileRoute('/sessions/new')({
 function NewSessionPage() {
   const navigate = useNavigate()
   const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
   const [pollInterval, setPollInterval] = useState(DEFAULT_POLL_INTERVAL_MS / 1000)
   const [timeout, setTimeout_] = useState(DEFAULT_TIMEOUT_MS / 1000)
   const [submitting, setSubmitting] = useState(false)
@@ -35,6 +37,7 @@ function NewSessionPage() {
     try {
       const session = await createSession({
         name: name.trim(),
+        description: description.trim() || undefined,
         pollIntervalMs,
         timeoutMs,
       })
@@ -63,6 +66,17 @@ function NewSessionPage() {
                   onChange={(e) => setName(e.target.value)}
                   required
                 />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  placeholder="Track ad spend vs donations. Healthy = ROAS above 1.5."
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">Used by AI copilot for business context.</p>
               </div>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

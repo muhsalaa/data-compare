@@ -23,6 +23,7 @@ const CASCADE: Record<string, CascadeEdge[]> = {
     { table: 'derivedMetrics' as const, by: 'sessionId' },
     { table: 'charts' as const, by: 'sessionId' },
     { table: 'warningRules' as const, by: 'sessionId' },
+    { table: 'sessionChatMessages' as const, by: 'sessionId' },
   ],
   sources: [
     { table: 'fieldMappings' as const, by: 'sourceId' },

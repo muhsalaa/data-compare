@@ -6,6 +6,7 @@ export interface SessionExport {
   exportedAt: string
   session: {
     name: string
+    description?: string
     pollIntervalMs: number
     timeoutMs: number
   }
@@ -63,6 +64,7 @@ export async function exportSession(sessionId: string): Promise<SessionExport> {
     exportedAt: new Date().toISOString(),
     session: {
       name: session.name,
+      description: session.description,
       pollIntervalMs: session.pollIntervalMs,
       timeoutMs: session.timeoutMs,
     },
@@ -168,6 +170,9 @@ function validateSessionExport(data: unknown): ImportValidationError | null {
   const session = d.session as Record<string, unknown>
   if (typeof session.name !== 'string' || session.name.trim().length === 0) {
     return validationError('Session name must be a non-empty string')
+  }
+  if (session.description !== undefined && typeof session.description !== 'string') {
+    return validationError('Session description must be a string when present')
   }
   if (typeof session.pollIntervalMs !== 'number' || typeof session.timeoutMs !== 'number') {
     return validationError('Session pollIntervalMs and timeoutMs must be numbers')
@@ -366,6 +371,7 @@ export async function importSession(file: File): Promise<string> {
       const session: Session = {
         id: newSessionId,
         name: importData.session.name,
+        description: importData.session.description?.trim() || undefined,
         status: 'paused',
         pollIntervalMs: importData.session.pollIntervalMs,
         timeoutMs: importData.session.timeoutMs,

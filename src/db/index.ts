@@ -11,10 +11,13 @@ export type FieldType = 'string' | 'number' | 'boolean'
 export type Scalar = string | number | boolean | null
 export type WarningSeverity = 'info' | 'warning' | 'critical'
 export type WarningState = 'healthy' | 'warning' | 'critical'
+export type AITransport = 'direct' | 'relay'
+export type SessionChatRole = 'system' | 'user' | 'assistant'
 
 export interface Session {
   id: string
   name: string
+  description?: string
   status: SessionStatus
   pollIntervalMs: number
   timeoutMs: number
@@ -112,6 +115,32 @@ export interface WarningEvent {
   timestamp: string
 }
 
+export interface AIProfile {
+  id: string
+  name: string
+  baseUrl: string
+  apiKey: string
+  model: string
+  transport: AITransport
+  enabled: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export interface SessionChatMessage {
+  id: string
+  sessionId: string
+  role: SessionChatRole
+  content: string
+  createdAt: string
+  meta?: {
+    preset?: string
+    model?: string
+    profileId?: string
+    contextWindow?: string
+  }
+}
+
 // ── Database ──────────────────────────────────────────────────────
 
 export class DashboardDB extends Dexie {
@@ -126,6 +155,8 @@ export class DashboardDB extends Dexie {
   mappedValues!: EntityTable<MappedValue, 'id'>
   derivedValues!: EntityTable<DerivedValue, 'id'>
   warningEvents!: EntityTable<WarningEvent, 'id'>
+  aiProfiles!: EntityTable<AIProfile, 'id'>
+  sessionChatMessages!: EntityTable<SessionChatMessage, 'id'>
 
   constructor() {
     super('DashboardDB')
@@ -156,6 +187,22 @@ export class DashboardDB extends Dexie {
       mappedValues: 'id, sourceResultId, [mappingId+sourceResultId]',
       derivedValues: 'id, cycleId, [metricId+cycleId]',
       warningEvents: 'id, cycleId, timestamp, [ruleId+cycleId]',
+    })
+
+    this.version(3).stores({
+      sessions: 'id, status, updatedAt',
+      sources: 'id, sessionId, [sessionId+key], type',
+      fieldMappings: 'id, sourceId',
+      derivedMetrics: 'id, sessionId',
+      charts: 'id, sessionId',
+      warningRules: 'id, sessionId',
+      pollCycles: 'id, sessionId, [sessionId+timestamp]',
+      sourceResults: 'id, cycleId, [sourceId+cycleId]',
+      mappedValues: 'id, sourceResultId, [mappingId+sourceResultId]',
+      derivedValues: 'id, cycleId, [metricId+cycleId]',
+      warningEvents: 'id, cycleId, timestamp, [ruleId+cycleId]',
+      aiProfiles: 'id, enabled, updatedAt',
+      sessionChatMessages: 'id, sessionId, [sessionId+createdAt]',
     })
   }
 }
@@ -200,6 +247,7 @@ export async function isSourceKeyAvailable(
 
 export async function createSession(data: {
   name: string
+  description?: string
   pollIntervalMs?: number
   timeoutMs?: number
 }): Promise<Session> {
@@ -210,6 +258,7 @@ export async function createSession(data: {
   const session: Session = {
     id: newId(),
     name: data.name,
+    description: data.description?.trim() || undefined,
     status: 'paused',
     pollIntervalMs,
     timeoutMs,
@@ -224,6 +273,7 @@ export async function updateSessionDetails(
   id: string,
   data: {
     name: string
+    description?: string
     pollIntervalMs: number
     timeoutMs: number
   },
@@ -231,10 +281,75 @@ export async function updateSessionDetails(
   assertValidSessionTiming(data)
   await db.sessions.update(id, {
     name: data.name,
+    description: data.description?.trim() || undefined,
     pollIntervalMs: data.pollIntervalMs,
     timeoutMs: data.timeoutMs,
     updatedAt: nowISO(),
   })
+}
+
+export function validateAIProfile(data: {
+  name: string
+  baseUrl: string
+  apiKey: string
+  model: string
+}): string | null {
+  if (!data.name.trim()) return 'Profile name is required'
+  if (!data.baseUrl.trim()) return 'Base URL is required'
+
+  try {
+    new URL(data.baseUrl)
+  } catch {
+    return 'Base URL must be a valid URL'
+  }
+
+  if (!data.apiKey.trim()) return 'API key is required'
+  if (!data.model.trim()) return 'Model is required'
+  return null
+}
+
+export async function saveAIProfile(data: {
+  id?: string
+  name: string
+  baseUrl: string
+  apiKey: string
+  model: string
+  transport: AITransport
+  enabled?: boolean
+}): Promise<AIProfile> {
+  const validationError = validateAIProfile(data)
+  if (validationError) {
+    throw new Error(validationError)
+  }
+
+  const now = nowISO()
+  const profile: AIProfile = {
+    id: data.id ?? newId(),
+    name: data.name.trim(),
+    baseUrl: data.baseUrl.trim(),
+    apiKey: data.apiKey.trim(),
+    model: data.model.trim(),
+    transport: data.transport,
+    enabled: data.enabled ?? true,
+    createdAt: now,
+    updatedAt: now,
+  }
+
+  if (data.id) {
+    const existing = await db.aiProfiles.get(data.id)
+    if (existing) {
+      const updatedProfile: AIProfile = {
+        ...existing,
+        ...profile,
+        createdAt: existing.createdAt,
+      }
+      await db.aiProfiles.put(updatedProfile)
+      return updatedProfile
+    }
+  }
+
+  await db.aiProfiles.add(profile)
+  return profile
 }
 
 export async function updateSessionStatus(

@@ -7,6 +7,7 @@
 |-------|------|-------------|
 | id | string (PK) | UUID |
 | name | string | User-facing name |
+| description | string (optional) | Free-text Session context for the AI copilot |
 | status | `active` \| `paused` \| `stopped` | Current state |
 | pollIntervalMs | number | Min 5000 (5s) |
 | timeoutMs | number | Per-source timeout, min 1000, max 80% of pollIntervalMs, default 15000 |
@@ -109,6 +110,29 @@
 | state | `healthy` \| `warning` \| `critical` | New state |
 | transition | `healthy→warning` \| `warning→healthy` \| `healthy→critical` \| etc. | |
 
+### ai_profiles
+| Field | Type | Description |
+|-------|------|-------------|
+| id | string (PK) | UUID |
+| name | string | Local profile label |
+| baseUrl | string | OpenAI-compatible endpoint or relay URL |
+| apiKey | string | Stored locally in IndexedDB |
+| model | string | Default model name |
+| transport | `direct` \| `relay` | Browser direct call or user-owned proxy |
+| enabled | boolean | Whether the profile is active |
+| createdAt | string (ISO) | |
+| updatedAt | string (ISO) | |
+
+### session_chat_messages
+| Field | Type | Description |
+|-------|------|-------------|
+| id | string (PK) | UUID |
+| sessionId | string (FK → sessions) | |
+| role | `system` \| `user` \| `assistant` | Chat role |
+| content | string | Persisted message text |
+| createdAt | string (ISO) | |
+| meta | JSON | Optional preset/model/context metadata |
+
 ## Indexes
 
 | Table | Index | Fields |
@@ -128,9 +152,15 @@
 | derived_values | byMetric | [metricId, cycleId] |
 | warning_events | byCycle | cycleId |
 | warning_events | byRule | [ruleId, cycleId] |
+| ai_profiles | byEnabled | enabled |
+| ai_profiles | byUpdatedAt | updatedAt |
+| session_chat_messages | bySession | sessionId |
+| session_chat_messages | bySessionCreatedAt | [sessionId, createdAt] |
 
 ## Notes
 
 - All IDs are UUID v4 strings.
 - `authConfig` is stored as plain JSON. MVP stores secrets in IndexedDB. Excluded from export.
+- `ai_profiles.apiKey` is stored locally in IndexedDB and is intentionally excluded from Session export.
+- `session_chat_messages` are local copilot history and are intentionally excluded from Session export.
 - `rawJson` in source_results may be large. Consider pruning or moving to separate object store if quota becomes an issue.

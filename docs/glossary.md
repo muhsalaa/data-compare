@@ -12,6 +12,12 @@
 | **Warning Rule** | Expression evaluated after each poll cycle. Outputs events on state transitions. Severities: `info`, `warning`, `critical`. |
 | **Poll Cycle** | One round of fetching all enabled sources in a session. All sources fetched in parallel (all-settled). Single shared timestamp for chart alignment. |
 | **Scalar** | `string | number | boolean | null`. The only values accepted from field mappings. |
+| **Session Description** | Free-text explanation of what a Session monitors, why it exists, and what the operator considers healthy or unhealthy. Used as primary business context for the AI copilot. |
+| **AI Profile** | User-supplied AI connection settings stored locally, including base URL, API key, model, and transport mode (`direct` or `relay`). |
+| **Session Copilot** | Read-only per-session chat assistant that answers questions about one Session using its config, history, source results, mapped values, derived metrics, and warning events. |
+| **Context Packet** | Compact structured summary built from IndexedDB and sent to the model. Includes session brief, current snapshot, recent history, and optional deep evidence. |
+| **Relay** | Optional user-owned HTTP service that forwards AI requests for providers that block browser CORS or when the operator does not want direct browser-to-provider traffic. |
+| **Preset Prompt** | Built-in chat shortcut such as “summarize health”, “explain anomalies”, or “suggest warning rules” that starts from a known question template. |
 
 ## Design Decisions
 
@@ -51,3 +57,9 @@
 | D32 | Export: maintain IDs, regenerate on import | JSON includes internal IDs for reference. Import regenerates IDs to avoid collisions. |
 | D33 | Formula null: save as null | Division by zero or null operand → null. Chart gaps. Warning rules treat null as false. |
 | D34 | Interval change keeps history | Changing interval mid-session restarts the polling timer. All past poll cycles preserved. Chart naturally shows the gap between old and new intervals via real timestamps. No data deleted. |
+| D35 | Session description feeds AI | Each session gains a free-text description used as the first business-context input for the AI copilot. |
+| D36 | AI scope is one session | The first AI experience only reasons about the currently open Session. No cross-session context by default. |
+| D37 | OpenAI-compatible runtime | AI requests target an OpenAI-compatible chat API shape with configurable base URL, model, and API key. |
+| D38 | Optional relay, not required | The app stays browser-first and can call compatible endpoints directly, but also supports a user-owned relay for CORS or safer key handling. |
+| D39 | Read-only copilot first | The first AI version only answers and suggests. It does not edit session config automatically. |
+| D40 | Compact context packets | The app sends summarized session context first and fetches deeper history or raw evidence only when needed, rather than dumping all IndexedDB data on every turn. |

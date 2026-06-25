@@ -8,8 +8,10 @@ import { Button } from '@/components/ui/button'
 import { StatusBadge } from '@/components/ui/status-badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { AIProfileSettingsCard } from '@/components/ai/ai-profile-settings-card'
 import ArrowLeft from 'lucide-react/dist/esm/icons/arrow-left'
 import Plus from 'lucide-react/dist/esm/icons/plus'
 import Settings2 from 'lucide-react/dist/esm/icons/settings-2'
@@ -75,6 +77,7 @@ function preloadSettingsForms() {
  */
 function SessionDetailsCard({ session, sessionId }: { session: Session; sessionId: string }) {
   const [editName, setEditName] = useState(session.name)
+  const [editDescription, setEditDescription] = useState(session.description ?? '')
   const [editInterval, setEditInterval] = useState(session.pollIntervalMs / 1000)
   const [editTimeout, setEditTimeout] = useState(session.timeoutMs / 1000)
   const [sessionDirty, setSessionDirty] = useState(false)
@@ -85,6 +88,7 @@ function SessionDetailsCard({ session, sessionId }: { session: Session; sessionI
   const maxTimeoutLabel = formatMsAsSeconds(maxTimeoutMsForInterval(safePollIntervalMs))
 
   function handleNameChange(v: string) { setEditName(v); setSessionDirty(true) }
+  function handleDescriptionChange(v: string) { setEditDescription(v); setSessionDirty(true) }
   function handleIntervalChange(v: number) { setEditInterval(v); setSessionDirty(true) }
   function handleTimeoutChange(v: number) { setEditTimeout(v); setSessionDirty(true) }
 
@@ -93,6 +97,7 @@ function SessionDetailsCard({ session, sessionId }: { session: Session; sessionI
 
     await updateSessionDetails(sessionId, {
       name: editName.trim(),
+      description: editDescription.trim() || undefined,
       pollIntervalMs,
       timeoutMs,
     })
@@ -108,7 +113,17 @@ function SessionDetailsCard({ session, sessionId }: { session: Session; sessionI
           <Label htmlFor="sess-name">Name</Label>
           <Input id="sess-name" value={editName} onChange={(e) => handleNameChange(e.target.value)} />
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="sess-description">Description</Label>
+          <Textarea
+            id="sess-description"
+            value={editDescription}
+            onChange={(e) => handleDescriptionChange(e.target.value)}
+            placeholder="Track ad spend vs donations. Healthy = ROAS above 1.5."
+          />
+          <p className="text-xs text-muted-foreground">Used by AI copilot for business context.</p>
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="sess-interval">Poll Interval (seconds)</Label>
             <Input id="sess-interval" type="number" min={MIN_POLL_INTERVAL_MS / 1000} step="0.1" value={editInterval} onChange={(e) => handleIntervalChange(Number(e.target.value))} />
@@ -221,6 +236,8 @@ export function SessionSettingsPage() {
         {session && (
           <SessionDetailsCard key={session.id} session={session} sessionId={id} />
         )}
+
+        <AIProfileSettingsCard />
 
         <Card>
           <CardHeader className="flex flex-row items-start justify-between">

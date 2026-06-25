@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { db, createSession, updateSessionStatus, deleteSession } from '../index'
+import { db, createSession, updateSessionDetails, updateSessionStatus, deleteSession } from '../index'
 
 // Reset DB before each test
 beforeEach(async () => {
@@ -30,6 +30,16 @@ describe('Session CRUD', () => {
     const found = await db.sessions.get(s.id)
     expect(found!.pollIntervalMs).toBe(10_000)
     expect(found!.timeoutMs).toBe(8_000)
+  })
+
+  it('persists an optional description', async () => {
+    const s = await createSession({
+      name: 'Campaign Monitor',
+      description: 'Watch spend, donations, and ROAS for the current campaign.',
+    })
+
+    const found = await db.sessions.get(s.id)
+    expect(found!.description).toBe('Watch spend, donations, and ROAS for the current campaign.')
   })
 
   it('rejects interval below 5 seconds', async () => {
@@ -84,6 +94,21 @@ describe('Session CRUD', () => {
 
     const found = await db.sessions.get(s.id)
     expect(found).toBeUndefined()
+  })
+
+  it('updates session details including description', async () => {
+    const s = await createSession({ name: 'Time' })
+
+    await updateSessionDetails(s.id, {
+      name: 'Time Updated',
+      description: 'Used by AI copilot to explain campaign health.',
+      pollIntervalMs: 30_000,
+      timeoutMs: 15_000,
+    })
+
+    const found = await db.sessions.get(s.id)
+    expect(found!.name).toBe('Time Updated')
+    expect(found!.description).toBe('Used by AI copilot to explain campaign health.')
   })
 
   it('updatedAt changes on status change', async () => {

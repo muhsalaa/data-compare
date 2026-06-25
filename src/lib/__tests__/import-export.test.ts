@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { db } from '@/db'
-import { importSession } from '@/lib/import-export'
+import { db, createSession, saveAIProfile } from '@/db'
+import { exportSession, importSession } from '@/lib/import-export'
 import type { SessionExport } from '@/lib/import-export'
 
 beforeEach(async () => {
@@ -18,6 +18,7 @@ function validExport(overrides?: Partial<SessionExport>): SessionExport {
     exportedAt: new Date().toISOString(),
     session: {
       name: 'Test Session',
+      description: 'Track campaign health and explain warning spikes.',
       pollIntervalMs: 30000,
       timeoutMs: 15000,
     },
@@ -90,6 +91,7 @@ describe('importSession — validation', () => {
     const session = await db.sessions.get(sessionId)
     expect(session).toBeDefined()
     expect(session!.name).toBe('Test Session')
+    expect(session!.description).toBe('Track campaign health and explain warning spikes.')
     expect(session!.status).toBe('paused')
 
     // Sources exist
@@ -223,6 +225,15 @@ describe('importSession — validation', () => {
     expect(await db.sessions.toArray()).toHaveLength(0)
   })
 
+  it('rejects non-string session description when present', async () => {
+    const bad = validExport()
+    ;(bad.session as Record<string, unknown>).description = 123
+
+    const file = new File([JSON.stringify(bad)], 'session.json', { type: 'application/json' })
+    await expect(importSession(file)).rejects.toThrow('Session description must be a string when present')
+    expect(await db.sessions.toArray()).toHaveLength(0)
+  })
+
   it('rejects pollIntervalMs < 5000', async () => {
     const bad = validExport()
     ;(bad.session as Record<string, unknown>).pollIntervalMs = 4000
@@ -296,5 +307,72 @@ describe('importSession — validation', () => {
     const file = new File([JSON.stringify(bad)], 'session.json', { type: 'application/json' })
     await expect(importSession(file)).rejects.toThrow('invalid URL')
     expect(await db.sessions.toArray()).toHaveLength(0)
+  })
+})
+
+describe('exportSession', () => {
+  it('includes session description in export', async () => {
+    const session = await createSession({
+      name: 'Export Session',
+      description: 'Explain ad efficiency and donation trends.',
+    })
+
+    await db.sources.add({
+      id: 'src-1',
+      sessionId: session.id,
+      key: 'ads',
+      name: 'Ads',
+      type: 'http-poll',
+      url: 'https://api.example.com/ads',
+      queryParams: [],
+      authConfig: { type: 'bearer', token: 'secret-token' },
+      enabled: true,
+      createdAt: new Date().toISOString(),
+    })
+
+    const exported = await exportSession(session.id)
+    expect(exported.session.description).toBe('Explain ad efficiency and donation trends.')
+  })
+
+  it('does not include ai profiles or chat history in export payload', async () => {
+    const session = await createSession({
+      name: 'Export Session',
+      description: 'Export only session config.',
+    })
+
+    await db.sources.add({
+      id: 'src-1',
+      sessionId: session.id,
+      key: 'ads',
+      name: 'Ads',
+      type: 'http-poll',
+      url: 'https://api.example.com/ads',
+      queryParams: [],
+      authConfig: { type: 'none' },
+      enabled: true,
+      createdAt: new Date().toISOString(),
+    })
+
+    await saveAIProfile({
+      name: 'Default profile',
+      baseUrl: 'https://openrouter.ai/api/v1/chat/completions',
+      apiKey: 'secret-key',
+      model: 'openai/gpt-4.1-mini',
+      transport: 'direct',
+    })
+
+    await db.sessionChatMessages.add({
+      id: 'chat-1',
+      sessionId: session.id,
+      role: 'user',
+      content: 'Tell me about this session.',
+      createdAt: new Date().toISOString(),
+    })
+
+    const exported = await exportSession(session.id)
+    expect(exported).not.toHaveProperty('aiProfiles')
+    expect(exported).not.toHaveProperty('sessionChatMessages')
+    expect(JSON.stringify(exported)).not.toContain('secret-key')
+    expect(JSON.stringify(exported)).not.toContain('Tell me about this session.')
   })
 })
