@@ -23,6 +23,7 @@ import { StatCards } from '@/components/dashboard/stat-cards'
 import { ChartBuilder } from '@/components/dashboard/chart-builder'
 import { HistoryTable } from '@/components/dashboard/history-table'
 import { WarningsPanel } from '@/components/dashboard/warnings-panel'
+import { SessionCopilotDrawer } from '@/components/ai/session-copilot-drawer'
 import { CHART_COLORS } from '@/lib/constants'
 import { computeStatCards } from '@/lib/stats'
 import { formatMsAsSeconds } from '@/lib/session-timing'
@@ -339,6 +340,15 @@ export function SessionPage() {
               <Button variant="outline" size="sm" onClick={handleRefresh}>
                 <RefreshCw className="mr-1 size-4" /> Refresh
               </Button>
+              <SessionCopilotDrawer
+                sessionId={id}
+                sessionDescription={session.description}
+                cycleCount={cycleCount ?? 0}
+                warningRuleCount={warningRuleCount ?? 0}
+                sourceCount={sources.length}
+                mappingCount={mappings.length}
+                metricCount={derivedMetrics.length}
+              />
               {session.status === 'active' && (
                 <Button variant="outline" size="sm" onClick={() => handleStatusChange('paused')}>
                   <Pause className="mr-2 size-4" /> Pause

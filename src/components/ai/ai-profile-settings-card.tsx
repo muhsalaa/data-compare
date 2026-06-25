@@ -1,36 +1,15 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { toast } from 'sonner'
-import { db, saveAIProfile, validateAIProfile, type AIProfile, type AITransport } from '@/db'
+import { db, saveAIProfile, validateAIProfile, type AIProfile } from '@/db'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 
-const OPENCODE_GO_BASE_URL = 'https://opencode.ai/zen/go/v1/chat/completions'
-const OPENCODE_GO_MODELS = [
-  'deepseek-v4-flash',
-  'deepseek-v4-pro',
-  'kimi-k2.7',
-  'kimi-k2.6',
-  'glm-5.2',
-  'glm-5.1',
-  'mimo-v2.5',
-  'mimo-v2.5-pro',
-  'minimax-m3',
-  'minimax-m2.7',
-  'qwen3.7-max',
-  'qwen3.7-plus',
-  'qwen3.6-plus',
-]
+const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1/chat/completions'
+const DEFAULT_PROFILE_NAME = 'OpenRouter'
+const DEFAULT_TRANSPORT = 'direct' as const
 
 export function AIProfileSettingsCard() {
   const profile = useLiveQuery(async () => (await db.aiProfiles.orderBy('updatedAt').reverse().first()) ?? null, [], undefined)
@@ -44,7 +23,6 @@ export function AIProfileSettingsCard() {
         <CardContent className="space-y-3">
           <div className="h-9 animate-pulse rounded-md bg-muted" />
           <div className="h-9 animate-pulse rounded-md bg-muted" />
-          <div className="h-24 animate-pulse rounded-md bg-muted" />
         </CardContent>
       </Card>
     )
@@ -54,17 +32,17 @@ export function AIProfileSettingsCard() {
 }
 
 function AIProfileSettingsCardBody({ profile }: { profile: AIProfile | null }) {
-  const [name, setName] = useState(profile?.name ?? 'Default profile')
-  const [baseUrl, setBaseUrl] = useState(profile?.baseUrl ?? '')
   const [apiKey, setApiKey] = useState(profile?.apiKey ?? '')
   const [model, setModel] = useState(profile?.model ?? '')
-  const [transport, setTransport] = useState<AITransport>(profile?.transport ?? 'direct')
   const [dirty, setDirty] = useState(false)
   const [saving, setSaving] = useState(false)
 
-  const validationError = validateAIProfile({ name, baseUrl, apiKey, model })
-  const suggestedModels = baseUrl.trim() === OPENCODE_GO_BASE_URL ? OPENCODE_GO_MODELS : []
-  const modelItems = suggestedModels.map((m) => ({ label: m, value: m }))
+  const validationError = validateAIProfile({
+    name: DEFAULT_PROFILE_NAME,
+    baseUrl: OPENROUTER_BASE_URL,
+    apiKey,
+    model,
+  })
 
   async function handleSave() {
     if (validationError) return
@@ -73,11 +51,11 @@ function AIProfileSettingsCardBody({ profile }: { profile: AIProfile | null }) {
     try {
       await saveAIProfile({
         id: profile?.id,
-        name,
-        baseUrl,
+        name: DEFAULT_PROFILE_NAME,
+        baseUrl: OPENROUTER_BASE_URL,
         apiKey,
         model,
-        transport,
+        transport: DEFAULT_TRANSPORT,
         enabled: true,
       })
       toast.success('AI profile saved')
@@ -94,107 +72,12 @@ function AIProfileSettingsCardBody({ profile }: { profile: AIProfile | null }) {
       <CardHeader>
         <CardTitle>AI Copilot</CardTitle>
         <CardDescription>
-          Stored locally in IndexedDB. Direct mode calls the provider from the browser. Relay mode calls your own proxy.
+          Currently only OpenRouter is supported. Stored locally in IndexedDB on this device.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="ai-profile-name">Profile Name</Label>
-          <Input
-            id="ai-profile-name"
-            value={name}
-            onChange={(event) => {
-              setName(event.target.value)
-              setDirty(true)
-            }}
-            placeholder="Default profile"
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="ai-base-url">Base URL</Label>
-          <Input
-            id="ai-base-url"
-            value={baseUrl}
-            onChange={(event) => {
-              setBaseUrl(event.target.value)
-              setDirty(true)
-            }}
-            placeholder="https://openrouter.ai/api/v1/chat/completions"
-          />
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="ai-model">Model</Label>
-            {suggestedModels.length > 0 ? (
-              <Select
-                items={modelItems}
-                value={model}
-                onValueChange={(value) => {
-                  if (value) setModel(value)
-                  setDirty(true)
-                }}
-              >
-                <SelectTrigger className="w-full" aria-label="Select model">
-                  <SelectValue placeholder="Select a model" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    {modelItems.map((item) => (
-                      <SelectItem key={item.value} value={item.value}>
-                        {item.label}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            ) : (
-              <Input
-                id="ai-model"
-                value={model}
-                onChange={(event) => {
-                  setModel(event.target.value)
-                  setDirty(true)
-                }}
-                placeholder="deepseek-v4-flash"
-              />
-            )}
-            <div className="min-w-0 space-y-1">
-              {suggestedModels.length > 0 ? (
-                <p className="text-xs text-muted-foreground">OpenCode Go preset models.</p>
-              ) : (
-                <p className="text-xs text-muted-foreground">Enter a model ID manually.</p>
-              )}
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label>Transport</Label>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant={transport === 'direct' ? 'default' : 'outline'}
-                onClick={() => {
-                  setTransport('direct')
-                  setDirty(true)
-                }}
-              >
-                Direct
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant={transport === 'relay' ? 'default' : 'outline'}
-                onClick={() => {
-                  setTransport('relay')
-                  setDirty(true)
-                }}
-              >
-                Relay
-              </Button>
-            </div>
-          </div>
+        <div className="rounded-xl border px-3 py-2 text-xs text-muted-foreground">
+          Endpoint is fixed to <span className="font-medium text-foreground">OpenRouter</span> for now.
         </div>
 
         <div className="space-y-2">
@@ -207,10 +90,26 @@ function AIProfileSettingsCardBody({ profile }: { profile: AIProfile | null }) {
               setApiKey(event.target.value)
               setDirty(true)
             }}
-            placeholder="sk-..."
+            placeholder="sk-or-v1-..."
           />
           <p className="text-xs text-muted-foreground">
-            Sensitive: this key stays in the browser profile on this device.
+            Sensitive: this key stays in your browser profile on this device.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="ai-model">Model</Label>
+          <Input
+            id="ai-model"
+            value={model}
+            onChange={(event) => {
+              setModel(event.target.value)
+              setDirty(true)
+            }}
+            placeholder="openai/gpt-4.1-mini"
+          />
+          <p className="text-xs text-muted-foreground">
+            Use an exact OpenRouter model ID, including any <code>:free</code> suffix.
           </p>
         </div>
 
