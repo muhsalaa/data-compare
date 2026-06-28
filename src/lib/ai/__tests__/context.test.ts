@@ -147,7 +147,7 @@ describe('ai context builders', () => {
     expect(brief.session.name).toBe('Campaign Watch')
     expect(brief.session.description).toContain('Track ad spend')
     expect(brief.sources[0]?.key).toBe('ads')
-    expect(brief.mappings[0]?.description).toBe('Total ad spend for the period.')
+    expect(brief.mappings.find((m) => m.key === 'spend')?.description).toBe('Total ad spend for the period.')
     expect(brief.derivedMetrics[0]?.key).toBe('roas')
     expect(brief.warningRules[0]?.name).toBe('Low ROAS')
   })

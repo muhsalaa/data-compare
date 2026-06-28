@@ -25,4 +25,9 @@ export const SESSION_COPILOT_PRESETS: SessionCopilotPreset[] = [
     label: 'Suggest rules',
     prompt: 'Suggest warning rules I should add for this session, based on the current setup and data shape.',
   },
+  {
+    id: 'add-rule',
+    label: 'Add a rule',
+    prompt: 'Create a warning rule for the most important risk in this session. Use the create_warning_rule tool so I can apply it.',
+  },
 ]

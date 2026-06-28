@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { db, createSession, saveAIProfile } from '@/db'
 import { createAbortError } from '@/lib/abort'
 import { sendSessionChatMessage } from '@/lib/ai/client'
+import { COPILOT_TOOLS } from '@/lib/ai/tools'
 
 function createSseResponse(chunks: string[]): Response {
   const encoder = new TextEncoder()
@@ -81,7 +82,7 @@ describe('sendSessionChatMessage', () => {
 
     expect(result.assistantMessage.content).toBe('Hello world')
 
-    const messages = await db.sessionChatMessages.where('sessionId').equals(session.id).toArray()
+    const messages = await db.sessionChatMessages.where('sessionId').equals(session.id).sortBy('createdAt')
     expect(messages).toHaveLength(2)
     expect(messages[0]?.role).toBe('user')
     expect(messages[1]?.role).toBe('assistant')
@@ -159,5 +160,62 @@ describe('sendSessionChatMessage', () => {
     ).rejects.toThrow(/aborted/i)
 
     expect(await db.sessionChatMessages.toArray()).toHaveLength(0)
+  })
+
+  it('sends tools and parses tool_calls in non-streaming response', async () => {
+    const session = await createSession({ name: 'Tool session' })
+    const profile = await saveAIProfile({
+      name: 'Direct',
+      baseUrl: 'https://example.com/v1/chat/completions',
+      apiKey: 'key',
+      model: 'model',
+      transport: 'direct',
+    })
+
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          choices: [{
+            message: {
+              role: 'assistant',
+              content: 'I created a rule proposal.',
+              tool_calls: [{
+                id: 'call-1',
+                type: 'function',
+                function: {
+                  name: 'create_warning_rule',
+                  arguments: JSON.stringify({
+                    name: 'High spend',
+                    expression: 'ads.spend > 1000',
+                    severity: 'warning',
+                  }),
+                },
+              }],
+            },
+          }],
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    )
+
+    const result = await sendSessionChatMessage({
+      sessionId: session.id,
+      profileId: profile.id,
+      userText: 'add a rule',
+      tools: COPILOT_TOOLS,
+    })
+
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    const init = fetchMock.mock.calls[0]?.[1] as RequestInit
+    const body = JSON.parse(String(init.body)) as { stream: boolean; tools?: unknown[] }
+    expect(body.stream).toBe(false)
+    expect(body.tools).toEqual(COPILOT_TOOLS)
+
+    expect(result.assistantMessage.content).toBe('I created a rule proposal.')
+    expect(result.toolCalls).toHaveLength(1)
+    expect(result.toolCalls?.[0]?.function.name).toBe('create_warning_rule')
+
+    const saved = await db.sessionChatMessages.get(result.assistantMessage.id)
+    expect(saved?.meta?.toolCalls).toHaveLength(1)
   })
 })

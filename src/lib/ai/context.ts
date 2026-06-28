@@ -7,6 +7,7 @@ const DEFAULT_LIMITS = {
   mappings: 16,
   derivedMetrics: 12,
   warningRules: 12,
+  charts: 12,
   cycles: 8,
   series: 8,
   warningEvents: 8,
@@ -64,23 +65,25 @@ async function loadSessionParts(sessionId: string) {
 
   const sources = await db.sources.where('sessionId').equals(sessionId).toArray()
   const sourceIds = sources.map((source) => source.id)
-  const [mappings, derivedMetrics, warningRules] = await Promise.all([
+  const [mappings, derivedMetrics, warningRules, charts] = await Promise.all([
     sourceIds.length > 0 ? db.fieldMappings.where('sourceId').anyOf(sourceIds).toArray() : Promise.resolve([]),
     db.derivedMetrics.where('sessionId').equals(sessionId).toArray(),
     db.warningRules.where('sessionId').equals(sessionId).toArray(),
+    db.charts.where('sessionId').equals(sessionId).toArray(),
   ])
 
-  return { session, sources, mappings, derivedMetrics, warningRules }
+  return { session, sources, mappings, derivedMetrics, warningRules, charts }
 }
 
 export async function buildSessionBrief(sessionId: string) {
-  const { session, sources, mappings, derivedMetrics, warningRules } = await loadSessionParts(sessionId)
+  const { session, sources, mappings, derivedMetrics, warningRules, charts } = await loadSessionParts(sessionId)
   const notes: TruncationNote[] = []
 
   addTruncationNote(notes, 'sources', sources.length, DEFAULT_LIMITS.sources)
   addTruncationNote(notes, 'mappings', mappings.length, DEFAULT_LIMITS.mappings)
   addTruncationNote(notes, 'derived metrics', derivedMetrics.length, DEFAULT_LIMITS.derivedMetrics)
   addTruncationNote(notes, 'warning rules', warningRules.length, DEFAULT_LIMITS.warningRules)
+  addTruncationNote(notes, 'charts', charts.length, DEFAULT_LIMITS.charts)
 
   return {
     session: {
@@ -116,6 +119,10 @@ export async function buildSessionBrief(sessionId: string) {
       expression: rule.expression,
       severity: rule.severity,
       enabled: rule.enabled,
+    })),
+    charts: charts.slice(0, DEFAULT_LIMITS.charts).map((chart) => ({
+      name: chart.name,
+      series: chart.series,
     })),
     truncation: notes,
   }

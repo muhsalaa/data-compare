@@ -4,9 +4,13 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { toast } from 'sonner'
 import { db } from '@/db'
 import { sendSessionChatMessage } from '@/lib/ai'
-import { clearSessionChatMessages } from '@/lib/ai/storage'
+import { clearSessionChatMessages, createSessionChatMessage } from '@/lib/ai/storage'
 import { detectAIProviderPreset } from '@/lib/ai/provider-presets'
 import { SESSION_COPILOT_PRESETS } from '@/lib/ai/presets'
+import { COPILOT_TOOLS } from '@/lib/ai/tools'
+import { ActionProposal } from '@/components/ai/action-proposal'
+import { ENABLE_COPILOT_ACTIONS } from '@/lib/constants'
+import type { CopilotAction } from '@/lib/ai/types'
 import { cn } from '@/lib/utils'
 import { ChatMarkdown } from '@/components/ai/chat-markdown'
 import { Badge } from '@/components/ui/badge'
@@ -92,6 +96,7 @@ export function SessionCopilotDrawer({
       await sendSessionChatMessage({
         sessionId,
         userText: nextText,
+        tools: ENABLE_COPILOT_ACTIONS ? COPILOT_TOOLS : undefined,
       })
     } catch (sendError) {
       const message = sendError instanceof Error ? sendError.message : 'Failed to send message'
@@ -101,6 +106,15 @@ export function SessionCopilotDrawer({
     } finally {
       setSending(false)
     }
+  }
+
+  async function handleApplied(actionDescription: string) {
+    await createSessionChatMessage({
+      sessionId,
+      role: 'assistant',
+      content: `Applied: ${actionDescription}`,
+      meta: { systemNote: true },
+    })
   }
 
   return (
@@ -215,6 +229,39 @@ export function SessionCopilotDrawer({
                               <span>Thinking…</span>
                             </div>
                           ) : null}
+                          {message.role === 'assistant' && message.meta?.toolCalls && message.meta.toolCalls.length > 0 && (
+                            <div className="mt-3 space-y-3">
+                              {message.meta.toolCalls.map((toolCall, index) => {
+                                let action: CopilotAction | null = null
+                                try {
+                                  const args = JSON.parse(toolCall.function.arguments) as Record<string, unknown>
+                                  action = { type: toolCall.function.name, payload: args } as CopilotAction
+                                } catch {
+                                  return null
+                                }
+                                const summary = (() => {
+                                  switch (action.type) {
+                                    case 'create_derived_metric':
+                                      return `${action.payload.label} (${action.payload.key})`
+                                    case 'create_warning_rule':
+                                      return action.payload.name
+                                    case 'create_chart':
+                                      return action.payload.name
+                                    default:
+                                      return 'unknown action'
+                                  }
+                                })()
+                                return (
+                                  <ActionProposal
+                                    key={index}
+                                    sessionId={sessionId}
+                                    action={action}
+                                    onApplied={() => void handleApplied(summary)}
+                                  />
+                                )
+                              })}
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}

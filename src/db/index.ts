@@ -138,6 +138,8 @@ export interface SessionChatMessage {
     model?: string
     profileId?: string
     contextWindow?: string
+    toolCalls?: Array<{ id: string; type: 'function'; function: { name: string; arguments: string } }>
+    systemNote?: boolean
   }
 }
 
