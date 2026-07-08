@@ -12,6 +12,8 @@ import X from 'lucide-react/dist/esm/icons/x'
 interface ActionProposalProps {
   sessionId: string
   action: CopilotAction
+  initialStatus?: 'idle' | 'applied' | 'dismissed'
+  onStatusChange?: (status: 'applied' | 'dismissed') => void
   onApplied?: () => void
   onDismissed?: () => void
 }
@@ -51,8 +53,8 @@ function severityBadge(severity: string): string {
   }
 }
 
-export function ActionProposal({ sessionId, action, onApplied, onDismissed }: ActionProposalProps) {
-  const [status, setStatus] = useState<'idle' | 'applying' | 'applied' | 'dismissed' | 'error'>('idle')
+export function ActionProposal({ sessionId, action, initialStatus, onStatusChange, onApplied, onDismissed }: ActionProposalProps) {
+  const [status, setStatus] = useState<'idle' | 'applying' | 'applied' | 'dismissed' | 'error'>(initialStatus ?? 'idle')
   const [error, setError] = useState<string | null>(null)
 
   const summary = actionSummary(action)
@@ -64,6 +66,7 @@ export function ActionProposal({ sessionId, action, onApplied, onDismissed }: Ac
       const result = await executeAction(sessionId, action)
       if (result.ok) {
         setStatus('applied')
+        onStatusChange?.('applied')
         onApplied?.()
       } else {
         setStatus('error')
@@ -77,6 +80,7 @@ export function ActionProposal({ sessionId, action, onApplied, onDismissed }: Ac
 
   function handleDismiss() {
     setStatus('dismissed')
+    onStatusChange?.('dismissed')
     onDismissed?.()
   }
 

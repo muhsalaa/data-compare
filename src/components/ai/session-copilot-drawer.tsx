@@ -4,7 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { toast } from 'sonner'
 import { db } from '@/db'
 import { sendSessionChatMessage } from '@/lib/ai'
-import { clearSessionChatMessages, createSessionChatMessage } from '@/lib/ai/storage'
+import { clearSessionChatMessages, createSessionChatMessage, updateSessionChatMessage } from '@/lib/ai/storage'
 import { detectAIProviderPreset } from '@/lib/ai/provider-presets'
 import { SESSION_COPILOT_PRESETS } from '@/lib/ai/presets'
 import { COPILOT_TOOLS } from '@/lib/ai/tools'
@@ -239,6 +239,7 @@ export function SessionCopilotDrawer({
                                 } catch {
                                   return null
                                 }
+                                const resolved = message.meta?.toolCallStatuses?.[toolCall.id]
                                 const summary = (() => {
                                   switch (action.type) {
                                     case 'create_derived_metric':
@@ -256,6 +257,18 @@ export function SessionCopilotDrawer({
                                     key={index}
                                     sessionId={sessionId}
                                     action={action}
+                                    initialStatus={resolved}
+                                    onStatusChange={(status) => {
+                                      void updateSessionChatMessage(message.id, {
+                                        meta: {
+                                          ...message.meta,
+                                          toolCallStatuses: {
+                                            ...message.meta?.toolCallStatuses,
+                                            [toolCall.id]: status,
+                                          },
+                                        },
+                                      })
+                                    }}
                                     onApplied={() => void handleApplied(summary)}
                                   />
                                 )

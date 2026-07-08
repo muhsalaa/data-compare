@@ -139,6 +139,7 @@ export interface SessionChatMessage {
     profileId?: string
     contextWindow?: string
     toolCalls?: Array<{ id: string; type: 'function'; function: { name: string; arguments: string } }>
+    toolCallStatuses?: Record<string, 'applied' | 'dismissed'>
     systemNote?: boolean
   }
 }

@@ -22,12 +22,12 @@ export const SESSION_COPILOT_PRESETS: SessionCopilotPreset[] = [
   },
   {
     id: 'rules',
-    label: 'Suggest rules',
-    prompt: 'Suggest warning rules I should add for this session, based on the current setup and data shape.',
+    label: 'Suggest metrics',
+    prompt: 'Suggest derived metrics I should add for this session. Use the create_derived_metric tool to propose them.',
   },
   {
     id: 'add-rule',
-    label: 'Add a rule',
-    prompt: 'Create a warning rule for the most important risk in this session. Use the create_warning_rule tool so I can apply it.',
+    label: 'Suggest rules',
+    prompt: 'Suggest warning rules I should add for this session. Use the create_warning_rule tool to propose them.',
   },
 ]
