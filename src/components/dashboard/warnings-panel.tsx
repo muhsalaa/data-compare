@@ -107,7 +107,54 @@ export const WarningsPanel = memo(function WarningsPanel({ sessionId }: Warnings
 
       {expanded && (
         <CardContent className="space-y-3">
-          {/* Legend */}
+          {/* Configured rules */}
+          <div>
+            <p className="mb-2 text-xs font-medium text-muted-foreground">
+              Configured Rules
+            </p>
+            <div className="space-y-1">
+              {rules.map((rule) => {
+                const state = ruleStateMap.get(rule.id)
+                return (
+                  <div
+                    key={rule.id}
+                    className={cn(
+                      'flex items-center gap-2 rounded px-2 py-1.5 text-xs',
+                      !rule.enabled && 'opacity-50',
+                    )}
+                  >
+                    <span
+                      className={cn(
+                        'inline-flex size-1.5 shrink-0 rounded-full',
+                        rule.enabled
+                          ? state?.state === 'healthy' || !state
+                            ? 'bg-green-500'
+                            : state.state === 'warning'
+                              ? 'bg-yellow-500'
+                              : 'bg-red-500'
+                          : 'bg-muted-foreground',
+                      )}
+                    />
+                    <span className="font-medium truncate">{rule.name}</span>
+                    <span
+                      className={cn(
+                        'rounded-full px-1.5 py-0.5 text-[10px] font-medium',
+                        SEVERITY_COLORS[rule.severity],
+                      )}
+                    >
+                      {rule.severity}
+                    </span>
+                    {!rule.enabled && (
+                      <span className="text-[10px] text-muted-foreground">disabled</span>
+                    )}
+                    <span className="ml-auto font-mono text-muted-foreground truncate max-w-[40%]">
+                      {rule.expression}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
           <details className="text-xs text-muted-foreground">
             <summary className="cursor-pointer font-medium hover:text-foreground">
               How alerts work
